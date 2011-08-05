@@ -1,6 +1,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Codec.Binary.Proquint
     (
+      -- ** Encoding Proquints
+      encode16
+    , encode32
+    , encodeWithSep32
+    , encode64
+    , encodeWithSep64
+
+      -- ** Decoding Proquints
+    , decode16
+    , decode16'
+    , decode32
+    , decode32'
+    , decodeWithSep32
+    , decodeWithSep32'
+    , decode64
+    , decode64'
+    , decodeWithSep64
+    , decodeWithSep64'
     )
   where
 
