@@ -21,7 +21,6 @@ Description:
 
 -- URL for the project homepage or repository.
 Homepage:            http://github.com/hellertime/proquint
-Source-repository:   git://github.com/hellertime/proquint.git
 
 -- The license under which the package is released.
 License:             BSD3
@@ -76,3 +75,9 @@ Test-Suite tests
      ,QuickCheck                 >= 2.0    && < 3
      ,test-framework-quickcheck2 >= 0.2.10 && < 0.3.0
      ,test-framework             >= 0.2.0  && < 0.5.0
+
+Source-Repository head
+    type: git
+    location: git://github.com/hellertime/proquint.git
+
+
