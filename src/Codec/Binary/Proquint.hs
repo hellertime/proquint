@@ -76,7 +76,7 @@ encode16 word = B8.pack [ con 0xf000 12
                         ]
   where
     getCode :: B8.ByteString -> Word16 -> Int -> Char
-    getCode tab mask shift = B8.index tab $ fromIntegral $ (word .&. mask) `shiftR` shift
+    getCode tab mask s = B8.index tab $ fromIntegral $ (word .&. mask) `shiftR` s
     vow = getCode vowelTable
     con = getCode consonantTable
 
@@ -117,6 +117,7 @@ decode16 proquint = B8.foldl' decode 0 $ B8.take 5 proquint
     decode word 'i' = word `shiftL` 2 + 1
     decode word 'o' = word `shiftL` 2 + 2
     decode word 'u' = word `shiftL` 2 + 3
+    decode _    x   = error ("Codec.Binary.Proquint: Illegal proquint encoding: " ++ [x])
 
 decode32 :: B8.ByteString -> Word32
 decode32 proquint = high .|. low
