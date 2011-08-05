@@ -68,17 +68,17 @@ vowelTable :: B8.ByteString
 vowelTable = B8.pack "aiou"
 
 encode16 :: Word16 -> B8.ByteString
-encode16 word = B8.pack $
-    con 0xf000 12 :
-    vow 0x0c00 10 :
-    con 0x03c0 6  :
-    vow 0x0030 4  :
-    con 0x000f 0  : []
+encode16 word = B8.pack [ con 0xf000 12
+                        , vow 0x0c00 10
+                        , con 0x03c0 6 
+                        , vow 0x0030 4 
+                        , con 0x000f 0 
+                        ]
   where
-    lookup :: B8.ByteString -> Word16 -> Int -> Char
-    lookup tab mask shift = B8.index tab $ fromIntegral $ (word .&. mask) `shiftR` shift
-    vow = lookup vowelTable
-    con = lookup consonantTable
+    getCode :: B8.ByteString -> Word16 -> Int -> Char
+    getCode tab mask shift = B8.index tab $ fromIntegral $ (word .&. mask) `shiftR` shift
+    vow = getCode vowelTable
+    con = getCode consonantTable
 
 encode32 :: Word32 -> B8.ByteString
 encode32 word = B8.append high low
@@ -122,7 +122,7 @@ decode32 :: B8.ByteString -> Word32
 decode32 proquint = high .|. low
   where
     high :: Word32
-    high = (fromIntegral $ decode16 proquint) `shiftL` 16 
+    high = fromIntegral (decode16 proquint) `shiftL` 16 
     low :: Word32
     low = fromIntegral $ decode16 $ B8.drop 5 proquint
 
@@ -130,6 +130,6 @@ decode64 :: B8.ByteString -> Word64
 decode64 proquint = high .|. low
   where
     high :: Word64
-    high = (fromIntegral $ decode32 proquint) `shiftL` 32
+    high = fromIntegral (decode32 proquint) `shiftL` 32
     low :: Word64
     low = fromIntegral $ decode32 $ B8.drop 10 proquint
