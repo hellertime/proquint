@@ -1,37 +1,71 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Codec.Binary.Proquint
     (
+      -- ** Data Type
+      Proquint
+    , ToProquint (..)
+
       -- ** Encoding Proquints
-      encode16
+    , encode16
     , encode32
-    , encodeWithSep32
     , encode64
-    , encodeWithSep64
 
       -- ** Decoding Proquints
     , decode16
-    , decode16'
     , decode32
-    , decode32'
-    , decodeWithSep32
-    , decodeWithSep32'
     , decode64
-    , decode64'
-    , decodeWithSep64
-    , decodeWithSep64'
     )
   where
 
 import Data.Bits
 import qualified Data.ByteString.Char8 as B8
-import Data.List ( genericIndex )
 import Data.Word
 
+data Proquint = P B8.ByteString
+              | MP B8.ByteString
+
+instance Show Proquint where
+    show (P bs)  = show bs
+    show (MP bs) = show bs
+
+toByteString :: Proquint -> B8.ByteString
+toByteString (P bs)  = bs
+toByteString (MP bs) = bs
+
+class ToProquint a where
+    toProquint          :: a -> Proquint
+    fromProquint        :: Proquint -> a
+
+    toProquintWithMagic :: a -> Proquint
+    toProquintWithMagic = addMagic . toProquint
+
+instance ToProquint Word16 where
+    toProquint = P . encode16
+    fromProquint = decode16 . toByteString . dropMagic
+
+instance ToProquint Word32 where
+    toProquint = P . encode32
+    fromProquint = decode32 . toByteString . dropMagic
+
+instance ToProquint Word64 where
+    toProquint = P . encode64
+    fromProquint = decode64 . toByteString . dropMagic
+
+proquintMagic :: B8.ByteString
+proquintMagic = B8.pack "0q-"
+
+dropMagic :: Proquint -> Proquint
+dropMagic (MP p)  = P $ B8.drop 3 p
+dropMagic p       = p
+
+addMagic :: Proquint -> Proquint
+addMagic (P p)  = MP $ B8.append proquintMagic p
+addMagic mp     = mp
+
 consonantTable :: B8.ByteString
-consonantTable = "bdfghjklmnprstvz"
+consonantTable = B8.pack "bdfghjklmnprstvz"
 
 vowelTable :: B8.ByteString
-vowelTable = "aiou"
+vowelTable = B8.pack "aiou"
 
 encode16 :: Word16 -> B8.ByteString
 encode16 word = B8.pack $
@@ -52,34 +86,14 @@ encode32 word = B8.append high low
     high = encode16 $ fromIntegral (word `shiftR` 16) 
     low  = encode16 $ fromIntegral (word .&. 0xffff)
 
-encodeWithSep32 :: Char -> Word32 -> B8.ByteString
-encodeWithSep32 sep word = B8.append high $ B8.cons sep low
-  where
-    high = encode16 $ fromIntegral (word `shiftR` 16) 
-    low  = encode16 $ fromIntegral (word .&. 0xffff)
-
 encode64 :: Word64 -> B8.ByteString
 encode64 word = B8.append high low
   where
     high = encode32 $ fromIntegral (word `shiftR` 32)
     low  = encode32 $ fromIntegral (word .&. 0xffffffff)
 
-encodeWithSep64 :: Char -> Word64 -> B8.ByteString
-encodeWithSep64 sep word = B8.append high $ B8.cons sep low
-  where
-    high = encodeWithSep32 sep $ fromIntegral (word `shiftR` 32)
-    low  = encodeWithSep32 sep $ fromIntegral (word .&. 0xffffffff)
-
-dropMagic :: B8.ByteString -> B8.ByteString
-dropMagic proquint = if B8.isPrefixOf "0q-" proquint
-                       then B8.drop 3 proquint
-                       else proquint
-
 decode16 :: B8.ByteString -> Word16
-decode16 = decode16' . dropMagic
-
-decode16' :: B8.ByteString -> Word16
-decode16' proquint = B8.foldl' decode 0 $ B8.take 5 proquint
+decode16 proquint = B8.foldl' decode 0 $ B8.take 5 proquint
   where
     -- consonants
     decode word 'b' = word `shiftL` 4 + 0
@@ -105,43 +119,17 @@ decode16' proquint = B8.foldl' decode 0 $ B8.take 5 proquint
     decode word 'u' = word `shiftL` 2 + 3
 
 decode32 :: B8.ByteString -> Word32
-decode32 = decode32' . dropMagic
-
-decode32' :: B8.ByteString -> Word32
-decode32' proquint = high .|. low
+decode32 proquint = high .|. low
   where
     high :: Word32
-    high = (fromIntegral $ decode16' proquint) `shiftL` 16 
+    high = (fromIntegral $ decode16 proquint) `shiftL` 16 
     low :: Word32
-    low = fromIntegral $ decode16' $ B8.drop 5 proquint
-
-decodeWithSep32 :: Char ->  B8.ByteString -> Word32
-decodeWithSep32 sep = decodeWithSep32' sep . dropMagic
-
-decodeWithSep32' :: Char -> B8.ByteString -> Word32
-decodeWithSep32' sep proquint = decode32' $ B8.append l r
-  where
-    (l:r:_) = B8.split sep proquint
+    low = fromIntegral $ decode16 $ B8.drop 5 proquint
 
 decode64 :: B8.ByteString -> Word64
-decode64 = decode64' . dropMagic
-
-decode64' :: B8.ByteString -> Word64
-decode64' proquint = high .|. low
+decode64 proquint = high .|. low
   where
     high :: Word64
-    high = (fromIntegral $ decode32' proquint) `shiftL` 32
+    high = (fromIntegral $ decode32 proquint) `shiftL` 32
     low :: Word64
-    low = fromIntegral $ decode32' $ B8.drop 10 proquint
-
-decodeWithSep64 :: Char -> B8.ByteString -> Word64
-decodeWithSep64 sep = decodeWithSep64' sep . dropMagic
-
-decodeWithSep64' :: Char -> B8.ByteString -> Word64
-decodeWithSep64' sep proquint = high .|. low
-  where
-    (a:b:c:d:_) = B8.split sep proquint
-    high :: Word64
-    high = (fromIntegral $ decode32' $ B8.append a b) `shiftL` 32
-    low :: Word64
-    low = fromIntegral $ decode32' $ B8.append c d
+    low = fromIntegral $ decode32 $ B8.drop 10 proquint
